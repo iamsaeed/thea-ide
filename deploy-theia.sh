@@ -224,8 +224,12 @@ RUN apk add --no-cache \
     git \
     openssh-client
 
-# Install yarn in the version range specified in package.json (>=1.7.0 <2)
-RUN npm install -g yarn@1.22.19
+# Ensure we have the correct yarn version (1.x, not 2.x)
+# Node alpine images come with yarn pre-installed, but we need to ensure it's 1.x
+RUN yarn --version && \
+    if [ "$(yarn --version | cut -d. -f1)" -ge "2" ]; then \
+        npm uninstall -g yarn && npm install -g yarn@1.22.19; \
+    fi
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
@@ -268,10 +272,13 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 CMD cd /app && yarn start --hostname=0.0.0.0 --port=3000 /home/theia
 EOF
 
-# Create Nginx configuration
+# Create initial HTTP-only Nginx configuration (before SSL)
 log_info "Creating Nginx configuration..."
 cat > /etc/nginx/sites-available/theia-ide << EOF
-# Redirect HTTP to HTTPS
+# Rate limiting zone (must be defined outside server blocks)
+limit_req_zone \$binary_remote_addr zone=theia_limit:10m rate=10r/s;
+
+# HTTP Server (will be updated to include HTTPS after SSL cert is obtained)
 server {
     listen 80;
     listen [::]:80;
@@ -281,30 +288,7 @@ server {
         root /var/www/html;
     }
     
-    location / {
-        return 301 https://\$server_name\$request_uri;
-    }
-}
-
-# HTTPS Server
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name $DOMAIN;
-    
-    # SSL configuration will be added by Certbot
-    # ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    
-    # Security headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    
-    # Rate limiting
-    limit_req_zone \$binary_remote_addr zone=theia_limit:10m rate=10r/s;
+    # Apply rate limiting
     limit_req zone=theia_limit burst=20 nodelay;
     
     # Proxy settings
@@ -460,7 +444,98 @@ log_info "Obtaining SSL certificate for $DOMAIN..."
 log_warning "Make sure your domain $DOMAIN is pointing to this server's IP address"
 read -p "Press Enter when your DNS is configured correctly..."
 
-certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email $EMAIL --redirect
+# Get SSL certificate first (using webroot method for initial cert)
+certbot certonly --webroot -w /var/www/html -d $DOMAIN --non-interactive --agree-tos --email $EMAIL
+
+# Now update Nginx configuration with SSL
+log_info "Updating Nginx configuration with SSL..."
+cat > /etc/nginx/sites-available/theia-ide << EOF
+# Rate limiting zone (must be defined outside server blocks)
+limit_req_zone \$binary_remote_addr zone=theia_limit:10m rate=10r/s;
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
+}
+
+# HTTPS Server
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name $DOMAIN;
+    
+    # SSL configuration
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # Apply rate limiting
+    limit_req zone=theia_limit burst=20 nodelay;
+    
+    # Proxy settings
+    client_max_body_size 100M;
+    proxy_read_timeout 86400s;
+    proxy_send_timeout 86400s;
+    
+    # Main location
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        
+        # Headers for proxying
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # WebSocket support (required for terminal)
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Buffering settings
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+    
+    # WebSocket specific location
+    location ~* \.(ws|wss) {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 86400;
+    }
+}
+EOF
+
+# Reload Nginx with new configuration
+nginx -t && systemctl reload nginx
 
 # Final setup
 log_info "Creating convenience scripts..."

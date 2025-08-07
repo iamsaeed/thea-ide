@@ -12,8 +12,12 @@ RUN apk add --no-cache \
     git \
     openssh-client
 
-# Install yarn in the version range specified in package.json (>=1.7.0 <2)
-RUN npm install -g yarn@1.22.19
+# Ensure we have the correct yarn version (1.x, not 2.x)
+# Node alpine images come with yarn pre-installed, but we need to ensure it's 1.x
+RUN yarn --version && \
+    if [ "$(yarn --version | cut -d. -f1)" -ge "2" ]; then \
+        npm uninstall -g yarn && npm install -g yarn@1.22.19; \
+    fi
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
