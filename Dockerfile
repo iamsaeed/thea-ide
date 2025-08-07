@@ -29,16 +29,16 @@ COPY . .
 RUN yarn rebuild && yarn run bundle
 
 # Create a non-root user for security
-RUN addgroup -g 1001 -S theia && \
-    adduser -S theia -u 1001
+RUN addgroup -g 1001 -S codeeditor && \
+    adduser -S codeeditor -u 1001
 
-# Change ownership of the app directory to theia user
-RUN chown -R theia:theia /app
+# Change ownership of the app directory to codeeditor user
+RUN chown -R codeeditor:codeeditor /app
 
 # Switch to non-root user
-USER theia
+USER codeeditor
 
-# Expose the default Theia port
+# Expose the default CodeEditor port
 EXPOSE 3000
 
 # Health check

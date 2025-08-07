@@ -1,5 +1,5 @@
 {
-  "name": "my-theia-app",
+  "name": "codeeditor-app",
   "version": "1.0.0",
   "main": "index.js",
   "private": true,
@@ -14,7 +14,12 @@
     "watch": "npm run rebuild && theia build --watch --mode development"
   },
   "theia": {
-    "target": "browser"
+    "target": "browser",
+    "frontend": {
+      "config": {
+        "applicationName": "CodeEditor"
+      }
+    }
   },
   "dependencies": {
     "@theia/core": "^1.63.3",
@@ -31,7 +36,7 @@
   },
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "CodeEditor - A web-based IDE built on Eclipse Theia",
   "workspaces": [
     "browser-app",
     "electron-app"

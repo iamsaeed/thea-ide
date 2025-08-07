@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  theia-app:
+  codeeditor-app:
     build: .
-    container_name: my-theia-app
+    container_name: codeeditor-app
     ports:
       - "3000:3000"
     restart: unless-stopped

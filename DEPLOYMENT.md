@@ -1,6 +1,6 @@
-# My Theia App - Docker Deployment Guide
+# CodeEditor - Docker Deployment Guide
 
-This guide explains how to deploy your Theia application using Docker on any server or droplet.
+This guide explains how to deploy your CodeEditor application using Docker on any server or droplet.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ This guide explains how to deploy your Theia application using Docker on any ser
    ```bash
    # If using git
    git clone <your-repo-url>
-   cd my-theia-app
+   cd codeeditor-app
    
    # Or upload the project files manually
    ```
@@ -26,7 +26,7 @@ This guide explains how to deploy your Theia application using Docker on any ser
    docker-compose up -d --build
    ```
 
-3. **Access your Theia IDE** at:
+3. **Access your CodeEditor IDE** at:
    ```
    http://your-server-ip:3000
    ```
@@ -35,16 +35,16 @@ This guide explains how to deploy your Theia application using Docker on any ser
 
 1. **Build the Docker image**:
    ```bash
-   docker build -t my-theia-app .
+   docker build -t codeeditor-app .
    ```
 
 2. **Run the container**:
    ```bash
    docker run -d \
-     --name my-theia-app \
+     --name codeeditor-app \
      -p 3000:3000 \
      --restart unless-stopped \
-     my-theia-app
+     codeeditor-app
    ```
 
 ## Server Setup (Ubuntu/Debian Example)
@@ -84,7 +84,7 @@ Add environment variables in `docker-compose.yml`:
 ```yaml
 environment:
   - NODE_ENV=production
-  - THEIA_DEFAULT_PLUGINS=local-dir:/app/plugins
+  - CODEEDITOR_DEFAULT_PLUGINS=local-dir:/app/plugins
 ```
 
 ## Management Commands
