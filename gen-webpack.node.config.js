@@ -21,9 +21,9 @@ const production = mode === 'production';
 /** @type {import('webpack').EntryObject} */
 const commonJsLibraries = {};
 for (const [entryPointName, entryPointPath] of Object.entries({
-    
+    'backend-init-theia': '@theia/plugin-ext/lib/hosted/node/scanners/backend-init-theia',
     'parcel-watcher': '@theia/filesystem/lib/node/parcel-watcher',
-    
+    'plugin-vscode-init': '@theia/plugin-ext-vscode/lib/node/plugin-vscode-init',
     
     
 })) {
@@ -81,7 +81,8 @@ const config = {
         'main': require.resolve('./src-gen/backend/main'),
         // Theia's IPC mechanism:
         'ipc-bootstrap': require.resolve('@theia/core/lib/node/messaging/ipc-bootstrap'),
-        
+        // VS Code extension support:
+        'plugin-host': require.resolve('@theia/plugin-ext/lib/hosted/node/plugin-host'),
         
         // Make sure the node-pty thread worker can be executed:
         'worker/conoutSocketWorker': require.resolve('node-pty/lib/worker/conoutSocketWorker'),        
