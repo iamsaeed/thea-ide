@@ -5,7 +5,7 @@
   "private": true,
   "engines": {
     "yarn": ">=1.7.0 <2",
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "bundle": "npm run rebuild && theia build --mode development",

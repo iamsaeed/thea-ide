@@ -210,8 +210,8 @@ EOF
 # Update Dockerfile to set correct working directory
 log_info "Updating Dockerfile for persistent workspace..."
 cat > Dockerfile << 'EOF'
-# Use Node.js 18 LTS as base image
-FROM node:18-alpine
+# Use Node.js 20 LTS as base image
+FROM node:20-alpine
 
 # Set working directory for build
 WORKDIR /app
